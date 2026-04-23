@@ -1,46 +1,56 @@
 /**
- * @name Wink_Vip_Crack_Debug
- * @description 绕过 Wink 会员检测 + 详细调试日志
+ * Quantumult X 脚本: 扫描全能王 VIP 差异化解锁
+ * 适配 v3.camscanner.com (嵌套结构) 和 api-cs.intsig.net (扁平结构)
  */
 
-let url = $request.url;
 let body = $response.body;
+if (!body) $done({}); 
 
-try {
-    let obj = JSON.parse(body);
+let obj = JSON.parse(body);
 
-    if (url.includes("api-wink.meitumv.com/user/show.json")) {
-        console.log("🔔 [Wink] 触发用户信息接口修改");
-        if (obj.data) {
-            console.log(`📝 [Wink] 修改前 vip_type: ${obj.data.vip_type}`);
-            obj.data.vip_type = 1; 
-            obj.data.coin = 8888;
-            console.log("✅ [Wink] 已成功将 vip_type 修改为 1");
-        }
+// 定义你要求的核心 VIP 属性数据
+const myVipData = {
+    "svip": 1,
+    "is_super_vip": 1,
+    "vip_type": "normal_vip", // 你测试成功的字段
+    "pc_vip": 1,
+    "expiry": 4092599349,
+    "grade": 10,
+    "in_trial": 0,
+    "group1_paid": 1,
+    "group2_paid": 1,
+    "initial_tm": "1511188713",
+    "last_payment_method": "promote",
+    "auto_renewal": false,
+    "vip_level_info": {
+        "level": 10,
+        "score": 9999,
+        "next_score": 10,
+        "create_time": 0
+    },
+    "level_info": {}
+};
+
+// --- 差异化处理逻辑 ---
+
+if (obj.data) {
+    // 路径 A: 适配 v3.camscanner.com (data -> ar_property -> psnl_vip_property)
+    if (obj.data.ar_property) {
+        console.log("检测到 v3 嵌套结构，执行差异化替换");
+        obj.data.ar_property.psnl_vip_property = myVipData;
+        obj.data.ar_property.server_time = "1776961568";
     } 
-    
-    else if (url.includes("api.account.meitu.com/users/show_current.json")) {
-        console.log("🔔 [Wink] 触发美图通行证接口修改");
-        if (obj.response && obj.response.user) {
-            // 修改 VIP 列表
-            if (obj.response.user.vip && obj.response.user.vip.list) {
-                obj.response.user.vip.list.forEach(item => {
-                    if (item.app_id === 184) {
-                        console.log(`📝 [Wink] 修改前 status: ${item.status}`);
-                        item.status = 1; 
-                        item.expire_time = 4102444800; // 2100年
-                    }
-                });
-            }
-            // 强制注入全局 VIP 标识
-            obj.response.user.is_vip = true;
-            console.log("✅ [Wink] 已强制注入全局 VIP 身份标识");
-        }
+    // 路径 B: 适配 api-cs.intsig.net (data -> psnl_vip_property)
+    else if (obj.data.psnl_vip_property) {
+        console.log("检测到 api-cs 扁平结构，执行标准替换");
+        obj.data.psnl_vip_property = myVipData;
+        obj.data.server_time = "1776961568";
     }
-
-    $done({ body: JSON.stringify(obj) });
-
-} catch (e) {
-    console.log(`❌ [Wink] 脚本执行出错: ${e}`);
-    $done({});
+    
+    // 通用补丁：开启去广告（如果存在该字段）
+    if (obj.data.removead !== undefined) {
+        obj.data.removead = "1";
+    }
 }
+
+$done({ body: JSON.stringify(obj) });
